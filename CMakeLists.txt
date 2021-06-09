@@ -8,3 +8,5 @@ set(CMAKE_C_STANDARD 11)
 add_executable(phase_6 bomb/phase_6.c)
 
 add_executable(phase_secret bomb/phase_secret.c)
+
+add_executable(csim cachelab/csim.c cachelab/cachelab.c)
