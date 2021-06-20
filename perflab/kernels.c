@@ -10,10 +10,10 @@
  * Please fill in the following team struct 
  */
 team_t team = {
-    "bovik",              /* Team name */
+    "Tao Cheng",              /* Team name */
 
-    "Harry Q. Bovik",     /* First member full name */
-    "bovik@nowhere.edu",  /* First member email address */
+    "Tao Cheng",     /* First member full name */
+    "chengtao06@gmail.com",  /* First member email address */
 
     "",                   /* Second member full name (leave blank if none) */
     ""                    /* Second member email addr (leave blank if none) */
@@ -40,6 +40,44 @@ void naive_rotate(int dim, pixel *src, pixel *dst)
 	    dst[RIDX(dim-1-j, i, dim)] = src[RIDX(i, j, dim)];
 }
 
+/*
+ * Simply switch i,j, because cache write miss is costly than read miss
+ */
+char rotate_switch_ij_descr[] = "rotate: Simply switch i j";
+void rotate_switch_ij(int dim, pixel *src, pixel *dst)
+{
+    int i, j, k;
+
+    for (j = 0; j < dim; j++) {
+        k = dim-1-j;
+        for (i = 0; i < dim; i++)
+            dst[RIDX(k, i, dim)] = src[RIDX(i, j, dim)];
+    }
+}
+
+char rotate_block8_descr[] = "rotate: Block 8";
+void rotate_block8(int dim, pixel *src, pixel *dst)
+{
+    int a, j;
+    pixel *s, *d;
+    for (a = 0; a < dim; a += 8) {
+        for (j = 0; j < dim; ++j) {
+            // i: a+0 ... a+7; j: j
+            s = src + a * dim + j;
+            d = dst + (dim - 1 - j) * dim + a;
+
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+            *d = *s; // d -= dim;
+        }
+    }
+}
+
 /* 
  * rotate - Your current working version of rotate
  * IMPORTANT: This is the version you will be graded on
@@ -47,7 +85,33 @@ void naive_rotate(int dim, pixel *src, pixel *dst)
 char rotate_descr[] = "rotate: Current working version";
 void rotate(int dim, pixel *src, pixel *dst) 
 {
-    naive_rotate(dim, src, dst);
+    int a, j;
+    pixel *s, *d;
+    for (a = 0; a < dim; a += 16) {
+        for (j = 0; j < dim; ++j) {
+            // i: a+0 ... a+7; j: j
+            s = src + a * dim + j;
+            d = dst + (dim - 1 - j) * dim + a;
+
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+            *(d++) = *s; s += dim;
+            *d = *s; // d -= dim;
+        }
+    }
 }
 
 /*********************************************************************
@@ -63,6 +127,8 @@ void register_rotate_functions()
     add_rotate_function(&naive_rotate, naive_rotate_descr);   
     add_rotate_function(&rotate, rotate_descr);   
     /* ... Register additional test functions here */
+    add_rotate_function(&rotate_switch_ij, rotate_switch_ij_descr);
+    add_rotate_function(&rotate_block8, rotate_block8_descr);
 }
 
 
@@ -156,6 +222,10 @@ void naive_smooth(int dim, pixel *src, pixel *dst)
 	    dst[RIDX(i, j, dim)] = avg(dim, i, j, src);
 }
 
+#define AVG_9(v0, v1, v2, v3, v4, v5, v6, v7, v8, c) ((v0)->c + (v1)->c + (v2)->c + (v3)->c + (v4)->c + (v5)->c + (v6)->c + (v7)->c + (v8)->c) / 9u
+#define AVG_6(v0, v1, v2, v3, v4, v5, c) ((v0)->c + (v1)->c + (v2)->c + (v3)->c + (v4)->c + (v5)->c) / 6u
+#define AVG_4(v0, v1, v2, v3, c) ((v0)->c + (v1)->c + (v2)->c + (v3)->c) / 4u
+
 /*
  * smooth - Your current working version of smooth. 
  * IMPORTANT: This is the version you will be graded on
@@ -163,9 +233,55 @@ void naive_smooth(int dim, pixel *src, pixel *dst)
 char smooth_descr[] = "smooth: Current working version";
 void smooth(int dim, pixel *src, pixel *dst) 
 {
-    naive_smooth(dim, src, dst);
-}
+    int i, j;
+    pixel *v0 = src, *v1 = src, *v2 = src + dim;
 
+    dst->red   = AVG_4(v1, v1+1, v2, v2+1, red);
+    dst->green = AVG_4(v1, v1+1, v2, v2+1, green);
+    dst->blue  = AVG_4(v1, v1+1, v2, v2+1, blue);
+    v1++; v2++; dst++;
+    for (j = 1; j < dim - 1; ++j) {
+        dst->red   = AVG_6(v1-1, v1, v1+1, v2-1, v2, v2+1, red);
+        dst->green = AVG_6(v1-1, v1, v1+1, v2-1, v2, v2+1, green);
+        dst->blue  = AVG_6(v1-1, v1, v1+1, v2-1, v2, v2+1, blue);
+        v1++; v2++; dst++;
+    }
+    dst->red   = AVG_4(v1-1, v1, v2-1, v2, red);
+    dst->green = AVG_4(v1-1, v1, v2-1, v2, green);
+    dst->blue  = AVG_4(v1-1, v1, v2-1, v2, blue);
+    v1++; v2++; dst++;
+
+    for (i = 1; i < dim - 1; ++i) {
+        dst->red   = AVG_6(v0, v0+1, v1, v1+1, v2, v2+1, red);
+        dst->green = AVG_6(v0, v0+1, v1, v1+1, v2, v2+1, green);
+        dst->blue  = AVG_6(v0, v0+1, v1, v1+1, v2, v2+1, blue);
+        v0++; v1++; v2++; dst++;
+        for (j = 1; j < dim - 1; ++j) {
+            dst->red   = AVG_9(v0-1, v0, v0+1, v1-1, v1, v1+1, v2-1, v2, v2+1, red);
+            dst->green = AVG_9(v0-1, v0, v0+1, v1-1, v1, v1+1, v2-1, v2, v2+1, green);
+            dst->blue  = AVG_9(v0-1, v0, v0+1, v1-1, v1, v1+1, v2-1, v2, v2+1, blue);
+            v0++; v1++; v2++; dst++;
+        }
+        dst->red   = AVG_6(v0-1, v0, v1-1, v1, v2-1, v2, red);
+        dst->green = AVG_6(v0-1, v0, v1-1, v1, v2-1, v2, green);
+        dst->blue  = AVG_6(v0-1, v0, v1-1, v1, v2-1, v2, blue);
+        v0++; v1++; v2++; dst++;
+    }
+
+    dst->red   = AVG_4(v0, v0+1, v1, v1+1, red);
+    dst->green = AVG_4(v0, v0+1, v1, v1+1, green);
+    dst->blue  = AVG_4(v0, v0+1, v1, v1+1, blue);
+    v0++; v1++; dst++;
+    for (j = 1; j < dim - 1; ++j) {
+        dst->red   = AVG_6(v0-1, v0, v0+1, v1-1, v1, v1+1, red);
+        dst->green = AVG_6(v0-1, v0, v0+1, v1-1, v1, v1+1, green);
+        dst->blue  = AVG_6(v0-1, v0, v0+1, v1-1, v1, v1+1, blue);
+        v0++; v1++; dst++;
+    }
+    dst->red   = AVG_4(v0-1, v0, v1-1, v1, red);
+    dst->green = AVG_4(v0-1, v0, v1-1, v1, green);
+    dst->blue  = AVG_4(v0-1, v0, v1-1, v1, blue);
+}
 
 /********************************************************************* 
  * register_smooth_functions - Register all of your different versions

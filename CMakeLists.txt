@@ -10,3 +10,5 @@ add_executable(phase_6 bomb/phase_6.c)
 add_executable(phase_secret bomb/phase_secret.c)
 
 add_executable(csim cachelab/csim.c cachelab/cachelab.c)
+
+add_executable(perf perflab/driver.c perflab/kernels.c perflab/fcyc.c perflab/clock.c)
